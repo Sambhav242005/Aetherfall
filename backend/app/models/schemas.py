@@ -124,3 +124,60 @@ class StoryboardCard(BaseModel):
     gameplay_objective: str = ""
     revealed_information: list[str] = Field(default_factory=list)
     validation_requirements: list[str] = Field(default_factory=list)
+
+
+class StoryArc(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    world_id: str
+    title: str
+    premise: str
+    theme: str
+    beats: list[str] = Field(default_factory=list)
+
+
+class StoryBeat(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    arc_id: str
+    act: int
+    order: int
+    summary: str
+    location_ids: list[str] = Field(default_factory=list)
+    character_ids: list[str] = Field(default_factory=list)
+    faction_ids: list[str] = Field(default_factory=list)
+    status: str = "draft"
+
+
+class Scene(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    beat_id: str
+    title: str
+    prose: str = ""
+    dialogue: list[dict[str, Any]] = Field(default_factory=list)
+    storyboard_card_id: str | None = None
+    revealed_information: list[str] = Field(default_factory=list)
+    status: str = "draft"
+
+
+class BibleEntry(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    world_id: str
+    kind: str
+    ref_id: str
+    text: str
+
+
+class VerifierVerdict(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    verdict: str
+    scores: dict[str, int] = Field(default_factory=dict)
+    issues: list[str] = Field(default_factory=list)
+    fix_hints: list[str] = Field(default_factory=list)
+
+    def passed(self, threshold: int) -> bool:
+        if self.verdict != "accept":
+            return False
+        return all(v >= threshold for v in self.scores.values()) if self.scores else False

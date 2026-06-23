@@ -113,6 +113,52 @@ def init_db(db_path: str | Path = DB_PATH) -> None:
                 revealed_information TEXT NOT NULL DEFAULT '[]',
                 validation_requirements TEXT NOT NULL DEFAULT '[]'
             );
+
+            CREATE TABLE IF NOT EXISTS story_arcs (
+                id TEXT PRIMARY KEY,
+                world_id TEXT NOT NULL,
+                title TEXT NOT NULL,
+                premise TEXT NOT NULL DEFAULT '',
+                theme TEXT NOT NULL DEFAULT '',
+                beats TEXT NOT NULL DEFAULT '[]'
+            );
+
+            CREATE TABLE IF NOT EXISTS story_beats (
+                id TEXT PRIMARY KEY,
+                arc_id TEXT NOT NULL,
+                act INTEGER NOT NULL DEFAULT 1,
+                "order" INTEGER NOT NULL DEFAULT 0,
+                summary TEXT NOT NULL DEFAULT '',
+                location_ids TEXT NOT NULL DEFAULT '[]',
+                character_ids TEXT NOT NULL DEFAULT '[]',
+                faction_ids TEXT NOT NULL DEFAULT '[]',
+                status TEXT NOT NULL DEFAULT 'draft'
+            );
+
+            CREATE TABLE IF NOT EXISTS scenes (
+                id TEXT PRIMARY KEY,
+                beat_id TEXT NOT NULL,
+                title TEXT NOT NULL DEFAULT '',
+                prose TEXT NOT NULL DEFAULT '',
+                dialogue TEXT NOT NULL DEFAULT '[]',
+                storyboard_card_id TEXT,
+                revealed_information TEXT NOT NULL DEFAULT '[]',
+                status TEXT NOT NULL DEFAULT 'draft'
+            );
+
+            CREATE TABLE IF NOT EXISTS bible_entries (
+                id TEXT PRIMARY KEY,
+                world_id TEXT NOT NULL,
+                kind TEXT NOT NULL,
+                ref_id TEXT NOT NULL,
+                text TEXT NOT NULL DEFAULT ''
+            );
+
+            CREATE TABLE IF NOT EXISTS bible_vectors (
+                entry_id TEXT PRIMARY KEY,
+                dim INTEGER NOT NULL,
+                vector TEXT NOT NULL
+            );
         """)
         conn.commit()
     finally:
