@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+
+# Local DB / runtime
+*.db
+backend/aetherworld.db
+
+# Secrets
+.env
+backend/.env
+
+# Harness scratch
+.remember/
+.superpowers/
