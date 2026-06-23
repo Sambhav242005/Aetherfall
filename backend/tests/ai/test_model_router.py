@@ -41,6 +41,19 @@ def test_falls_back_on_error():
     assert res.model == "d2" and res.content == "recovered"
 
 
+def test_falls_back_on_empty_response():
+    class EmptyThenGood:
+        def __init__(self):
+            self.calls = []
+        def chat(self, messages, model, **kw):
+            self.calls.append(model)
+            return "" if model == "d1" else "recovered"
+
+    r = ModelRouter(EmptyThenGood(), _settings())
+    res = r.complete("director", [{"role": "user", "content": "x"}])
+    assert res.model == "d2" and res.content == "recovered"
+
+
 def test_raises_when_all_fail():
     class Dead:
         def chat(self, *a, **k): raise RuntimeError("nope")
