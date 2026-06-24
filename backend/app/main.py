@@ -1,6 +1,7 @@
 from __future__ import annotations
 from fastapi import FastAPI
 from app.api.routes_world import router as world_router
+from app.api.routes_ai import router as ai_router
 
 app = FastAPI(
     title="Aetherworld Engine",
@@ -9,6 +10,7 @@ app = FastAPI(
 )
 
 app.include_router(world_router)
+app.include_router(ai_router)
 
 
 @app.get("/health")
