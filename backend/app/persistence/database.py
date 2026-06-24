@@ -7,15 +7,17 @@ from pathlib import Path
 DB_PATH = Path(__file__).resolve().parent.parent.parent / "aetherworld.db"
 
 
-def get_connection(db_path: str | Path = DB_PATH) -> sqlite3.Connection:
-    conn = sqlite3.connect(str(db_path))
+def get_connection(db_path: str | Path | None = None) -> sqlite3.Connection:
+    # Resolve DB_PATH at call time (not as a default arg) so tests can redirect
+    # the database to a temp file via monkeypatch without touching the real DB.
+    conn = sqlite3.connect(str(db_path if db_path is not None else DB_PATH))
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA foreign_keys=ON")
     return conn
 
 
-def init_db(db_path: str | Path = DB_PATH) -> None:
+def init_db(db_path: str | Path | None = None) -> None:
     conn = get_connection(db_path)
     try:
         conn.executescript("""

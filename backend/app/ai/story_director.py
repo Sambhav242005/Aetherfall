@@ -26,7 +26,13 @@ def generate_outline(world_id, conn: sqlite3.Connection, router: ModelRouter,
         {"role": "system", "content": _OUTLINE_SYSTEM},
         {"role": "user", "content": f"WORLD FACTS:\n{facts}\n\nDesign the arc."},
     ]
-    data = json.loads(router.complete("director", messages, json_mode=True).content)
+    raw = router.complete("director", messages, json_mode=True).content
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise ValueError("director returned non-JSON story outline") from exc
+    if not isinstance(data, dict):
+        raise ValueError("director returned a non-object story outline")
     arc_id = f"arc_{uuid.uuid4().hex[:8]}"
     beat_ids: list[str] = []
     for i, b in enumerate(data.get("beats", [])):
@@ -80,9 +86,10 @@ def generate_story(world_id, conn: sqlite3.Connection, router: ModelRouter,
         packed = ctx.pack(char_budget=6000)
 
         proposal = AIProposal(id=f"prop_{uuid.uuid4().hex[:8]}", proposal_type="scene",
-                              referenced_world_ids=beat.location_ids + beat.character_ids,
+                              referenced_world_ids=beat.location_ids + beat.character_ids + beat.faction_ids,
                               payload={"location_id": beat.location_ids[0] if beat.location_ids else None,
-                                       "character_ids": beat.character_ids})
+                                       "character_ids": beat.character_ids,
+                                       "faction_ids": beat.faction_ids})
         scene = Scene(id=f"scene_{uuid.uuid4().hex[:8]}", beat_id=beat.id,
                       title=beat.summary[:60], revealed_information=[])
 

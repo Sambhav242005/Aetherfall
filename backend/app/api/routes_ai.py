@@ -1,5 +1,4 @@
 from __future__ import annotations
-import json
 from fastapi import APIRouter, Depends, HTTPException
 from app.config import get_settings
 from app.ai.ai_client import OpenRouterClient
@@ -33,8 +32,11 @@ def generate(world_id: str, model_router: ModelRouter = Depends(get_router)):
         embedder = HashEmbedder(dim=s.embedding_dim)
         bible = StoryBible(conn, embedder, VectorStore(conn, embedder.dim))
         retriever = Retriever(conn, bible)
-        arc = generate_story(world_id, conn, model_router, retriever, bible,
-                             max_repair=s.max_repair_attempts, threshold=s.verifier_threshold)
+        try:
+            arc = generate_story(world_id, conn, model_router, retriever, bible,
+                                 max_repair=s.max_repair_attempts, threshold=s.verifier_threshold)
+        except ValueError as exc:
+            raise HTTPException(status_code=502, detail=f"story model returned invalid output: {exc}") from exc
         scene_count = conn.execute(
             "SELECT COUNT(*) AS c FROM scenes s JOIN story_beats b ON s.beat_id = b.id "
             "WHERE b.arc_id = ?", (arc.id,)).fetchone()["c"]

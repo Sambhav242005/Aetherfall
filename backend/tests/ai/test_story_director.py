@@ -1,4 +1,5 @@
 import json
+import pytest
 from app.config import Settings
 from app.persistence.database import get_connection, init_db
 from app.engine.world_generator import generate_world
@@ -87,5 +88,17 @@ def test_repair_loop_flags_for_review(tmp_path):
         arc = generate_story(wid, conn, router, Retriever(conn, bible), bible, max_repair=2, threshold=6)
         scenes = conn.execute("SELECT * FROM scenes").fetchall()
         assert scenes[0]["status"] == "needs_human_review"
+    finally:
+        conn.close()
+
+
+def test_malformed_director_output_raises_valueerror(tmp_path):
+    conn, wid = _world(tmp_path / "m.db")
+    try:
+        router = ModelRouter(FakeAIClient(["not json at all"]),
+                             Settings(openrouter_api_key="k", director_models=["d1"], rpm_limit=1000))
+        bible = StoryBible(conn, HashEmbedder(64), VectorStore(conn, 64))
+        with pytest.raises(ValueError):
+            generate_outline(wid, conn, router, Retriever(conn, bible))
     finally:
         conn.close()
