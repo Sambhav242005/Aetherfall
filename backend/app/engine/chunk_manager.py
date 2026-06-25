@@ -1,83 +1,62 @@
 from __future__ import annotations
-import hashlib
-import json
-import random
+from collections import Counter
 from app.models.schemas import Chunk, Layer
-
+from app.engine.fields import WorldFields
+from app.engine.biomes import classify, is_water, is_river
 
 CHUNK_SIZE = 64
-RIVERFALL_CHUNKS = {
-    (0, 0): "plains",
-    (0, 1): "plains",
-    (1, 0): "plains",
-    (1, 1): "lake",
-    (2, 0): "forest",
-    (2, 1): "plains",
-    (0, -1): "plains",
-    (1, -1): "hills",
-    (-1, 0): "plains",
-    (-1, 1): "forest",
-}
 
 
 def _chunk_id(world_id: str, layer: Layer, cx: int, cy: int) -> str:
     return f"{world_id}:{layer.value}:{cx}:{cy}"
 
 
-def _biome_from_position(cx: int, cy: int) -> str:
-    key = (cx, cy)
-    return RIVERFALL_CHUNKS.get(key, "plains")
-
-
-def _generate_terrain_cells(seed: int, cx: int, cy: int, layer: Layer, biome: str) -> list[dict]:
-    h = hashlib.sha256(f"{seed}:{cx}:{cy}:{layer.value}:terrain".encode()).hexdigest()
-    cell_seed = int(h[:16], 16)
-    rng = random.Random(cell_seed)
-
-    cells = []
-    for y in range(CHUNK_SIZE):
-        for x in range(CHUNK_SIZE):
-            world_x = cx * CHUNK_SIZE + x
-            world_y = cy * CHUNK_SIZE + y
-            elevation = rng.random()
-            moisture = rng.random()
-            cell = {
-                "x": world_x,
-                "y": world_y,
-                "elevation": round(elevation, 4),
-                "moisture": round(moisture, 4),
-                "biome": biome,
-            }
-            cells.append(cell)
-
-    return cells
-
-
-def _generate_power_influence(seed: int, cx: int, cy: int, layer: Layer) -> dict[str, float]:
-    h = hashlib.sha256(f"{seed}:{cx}:{cy}:{layer.value}:power".encode()).hexdigest()
-    rng = random.Random(int(h[:16], 16))
-
+def _surface_cell(fields: WorldFields, gx: int, gy: int) -> dict:
+    h = fields.height(gx, gy)
+    m = fields.moisture(gx, gy)
+    t = fields.heat(gx, gy)
+    flow = fields.flow(gx, gy)
+    water = is_water(h)
+    river = (not water) and is_river(flow, h)
+    biome = "river" if river else classify(h, m, t)
     return {
-        "magic": round(rng.random(), 4),
-        "aura": round(rng.random(), 4),
-        "alchemy": round(rng.random(), 4),
-        "mechanical": round(rng.random(), 4),
-        "biological": round(rng.random(), 4),
-        "mind": round(rng.random(), 4),
+        "x": gx, "y": gy,
+        "elevation": h, "moisture": m, "heat": t,
+        "biome": biome, "water": water or river,
     }
 
 
-def _generate_danger(seed: int, cx: int, cy: int, layer: Layer) -> float:
-    h = hashlib.sha256(f"{seed}:{cx}:{cy}:{layer.value}:danger".encode()).hexdigest()
-    rng = random.Random(int(h[:16], 16))
-    return round(rng.random(), 4)
+def _nonsurface_cell(layer: Layer, fields: WorldFields, gx: int, gy: int) -> dict:
+    """Minimal coherent fields for non-surface layers (one channel -> two biomes)."""
+    h = fields.height(gx, gy)
+    if layer == Layer.SKY:
+        biome, water = ("floating_island" if h >= 0.62 else "void"), False
+    elif layer == Layer.OCEAN:
+        biome, water = ("trench" if h < 0.30 else "deep_water"), True
+    else:  # UNDERGROUND, DEEP
+        biome, water = ("cavern" if h >= 0.55 else "rock"), False
+    return {"x": gx, "y": gy, "elevation": h, "moisture": 0.0, "heat": 0.0,
+            "biome": biome, "water": water}
 
 
 def generate_chunk(world_id: str, seed: int, layer: Layer, cx: int, cy: int) -> Chunk:
-    biome = _biome_from_position(cx, cy)
-    terrain_cells = _generate_terrain_cells(seed, cx, cy, layer, biome)
-    power_influence = _generate_power_influence(seed, cx, cy, layer)
-    danger_level = _generate_danger(seed, cx, cy, layer)
+    fields = WorldFields(seed)
+    is_surface = layer == Layer.SURFACE
+
+    cells: list[dict] = []
+    for y in range(CHUNK_SIZE):
+        for x in range(CHUNK_SIZE):
+            gx = cx * CHUNK_SIZE + x
+            gy = cy * CHUNK_SIZE + y
+            cells.append(
+                _surface_cell(fields, gx, gy) if is_surface
+                else _nonsurface_cell(layer, fields, gx, gy)
+            )
+
+    modal_biome = Counter(c["biome"] for c in cells).most_common(1)[0][0]
+
+    center_gx = cx * CHUNK_SIZE + CHUNK_SIZE // 2
+    center_gy = cy * CHUNK_SIZE + CHUNK_SIZE // 2
 
     return Chunk(
         id=_chunk_id(world_id, layer, cx, cy),
@@ -85,10 +64,10 @@ def generate_chunk(world_id: str, seed: int, layer: Layer, cx: int, cy: int) -> 
         layer=layer,
         chunk_x=cx,
         chunk_y=cy,
-        biome=biome,
-        terrain_cells=terrain_cells,
+        biome=modal_biome,
+        terrain_cells=cells,
         structures=[],
         entities=[],
-        danger_level=danger_level,
-        power_influence=power_influence,
+        danger_level=fields.danger(center_gx, center_gy),
+        power_influence=fields.power(center_gx, center_gy),
     )
