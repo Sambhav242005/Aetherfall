@@ -8,9 +8,10 @@ from app.ai.rag.vector_store import VectorStore
 from app.ai.rag.story_bible import StoryBible
 from app.ai.rag.retriever import Retriever
 from app.ai.story_director import generate_story
+from app.ai.worldbuilder import generate_world_bible, load_world_bible, save_world_bible
 from app.ai.ai_validator import validate_proposal
 from app.persistence.database import get_connection, init_db
-from app.models.schemas import AIProposal
+from app.models.schemas import AIProposal, WorldBible
 
 router = APIRouter(prefix="/api/ai")
 
@@ -31,7 +32,7 @@ def generate(world_id: str, model_router: ModelRouter = Depends(get_router)):
             raise HTTPException(status_code=404, detail="World not found")
         embedder = HashEmbedder(dim=s.embedding_dim)
         bible = StoryBible(conn, embedder, VectorStore(conn, embedder.dim))
-        retriever = Retriever(conn, bible)
+        retriever = Retriever(conn, bible, world_id=world_id)
         try:
             arc = generate_story(world_id, conn, model_router, retriever, bible,
                                  max_repair=s.max_repair_attempts, threshold=s.verifier_threshold)
@@ -62,6 +63,53 @@ def get_story(world_id: str):
                 scenes = [dict(r) for r in conn.execute(
                     f"SELECT * FROM scenes WHERE beat_id IN ({bmarks})", beat_ids).fetchall()]
         return {"arcs": arcs, "beats": beats, "scenes": scenes}
+    finally:
+        conn.close()
+
+
+@router.post("/world/{world_id}/bible/generate")
+def generate_bible(world_id: str, model_router: ModelRouter = Depends(get_router)):
+    """AI drafts the canonical World Bible from the procedural world (status='draft')."""
+    init_db()
+    s = get_settings()
+    conn = get_connection()
+    try:
+        if conn.execute("SELECT 1 FROM worlds WHERE id = ?", (world_id,)).fetchone() is None:
+            raise HTTPException(status_code=404, detail="World not found")
+        try:
+            bible = generate_world_bible(world_id, conn, model_router,
+                                         max_repair=s.max_repair_attempts, threshold=s.verifier_threshold)
+        except ValueError as exc:
+            raise HTTPException(status_code=502, detail=f"worldbuilder returned invalid output: {exc}") from exc
+        return bible.model_dump(mode="json")
+    finally:
+        conn.close()
+
+
+@router.get("/world/{world_id}/bible")
+def get_bible(world_id: str):
+    init_db()
+    conn = get_connection()
+    try:
+        bible = load_world_bible(conn, world_id)
+        if bible is None:
+            raise HTTPException(status_code=404, detail="World bible not found")
+        return bible.model_dump(mode="json")
+    finally:
+        conn.close()
+
+
+@router.put("/world/{world_id}/bible")
+def update_bible(world_id: str, bible: WorldBible):
+    """Human review/edit. The path is authoritative and the edit is marked source='human'."""
+    init_db()
+    conn = get_connection()
+    try:
+        if conn.execute("SELECT 1 FROM worlds WHERE id = ?", (world_id,)).fetchone() is None:
+            raise HTTPException(status_code=404, detail="World not found")
+        bible.world_id = world_id
+        bible.source = "human"
+        return save_world_bible(conn, bible).model_dump(mode="json")
     finally:
         conn.close()
 

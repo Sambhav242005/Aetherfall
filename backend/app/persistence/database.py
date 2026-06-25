@@ -161,6 +161,22 @@ def init_db(db_path: str | Path | None = None) -> None:
                 dim INTEGER NOT NULL,
                 vector TEXT NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS world_bible (
+                world_id TEXT PRIMARY KEY,
+                premise TEXT NOT NULL DEFAULT '',
+                aether_system TEXT NOT NULL DEFAULT '',
+                the_fall TEXT NOT NULL DEFAULT '',
+                history TEXT NOT NULL DEFAULT '',
+                layers TEXT NOT NULL DEFAULT '{}',
+                peoples TEXT NOT NULL DEFAULT '',
+                factions_overview TEXT NOT NULL DEFAULT '',
+                themes TEXT NOT NULL DEFAULT '[]',
+                tone TEXT NOT NULL DEFAULT '',
+                status TEXT NOT NULL DEFAULT 'draft',
+                source TEXT NOT NULL DEFAULT 'ai',
+                FOREIGN KEY (world_id) REFERENCES worlds(id)
+            );
         """)
         conn.commit()
     finally:

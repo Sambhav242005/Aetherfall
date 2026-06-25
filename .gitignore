@@ -10,6 +10,12 @@ venv/
 *.db
 backend/aetherworld.db
 
+# Stray server stdout/stderr redirects
+.err
+.out
+*.err
+*.out
+
 # Secrets
 .env
 backend/.env

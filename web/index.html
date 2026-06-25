@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Aetherfall · Story Board</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- Infinite canvas -->
+  <canvas id="board" aria-label="Story board canvas"></canvas>
+
+  <!-- Top hint -->
+  <div id="hint" class="hint">
+    To move canvas, hold <kbd>Scroll&nbsp;wheel</kbd> or <kbd>Space</kbd> while dragging, or use the hand tool
+  </div>
+
+  <!-- Brand -->
+  <header class="brand">
+    <span class="brand-mark"></span>
+    <div class="brand-text">
+      <strong>Aetherfall</strong>
+      <span>Story Board</span>
+    </div>
+  </header>
+
+  <!-- Left tool dock -->
+  <nav class="dock dock-left" role="toolbar" aria-label="Tools">
+    <button class="tool" data-tool="select" title="Select / move nodes (V)" aria-pressed="true">
+      <svg viewBox="0 0 24 24"><path d="M5 3l14 8-6 1.5L9.5 19 5 3z"/></svg>
+    </button>
+    <button class="tool" data-tool="hand" title="Pan canvas (H)">
+      <svg viewBox="0 0 24 24"><path d="M8 11V5.5a1.5 1.5 0 013 0V11m0-1V4.5a1.5 1.5 0 013 0V11m0-.5V6a1.5 1.5 0 013 0v7c0 4-2.5 7-6.5 7S8 18 7 16l-2.2-3.4a1.6 1.6 0 012.6-1.8L8 12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <button class="tool" data-tool="node" title="Add node (N)">
+      <svg viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" rx="3" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M12 9.5v5M9.5 12h5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+    </button>
+    <button class="tool" data-tool="connect" title="Draw connection (C)">
+      <svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.4" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="18" cy="18" r="2.4" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M8 8c3 0 5 5 8 8" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+    </button>
+  </nav>
+
+  <!-- Top-right actions -->
+  <div class="actions">
+    <div class="seg">
+      <button id="act-demo" class="ghost" title="Load the Aetherfall sample storyboard">Demo</button>
+      <button id="act-load" class="ghost" title="Load story from the backend API">Load from API…</button>
+      <button id="act-bible" class="ghost" title="View, generate, or edit the World Bible">World Bible</button>
+    </div>
+    <div class="seg">
+      <button id="act-export" class="ghost" title="Export board as JSON">Export</button>
+      <button id="act-clear" class="ghost danger" title="Clear the board">Clear</button>
+    </div>
+  </div>
+
+  <!-- Bottom-left view controls -->
+  <div class="viewbar">
+    <button id="zoom-out" title="Zoom out">&minus;</button>
+    <button id="zoom-level" title="Reset zoom to 100%">100%</button>
+    <button id="zoom-in" title="Zoom in">+</button>
+    <span class="viewbar-sep"></span>
+    <button id="zoom-fit" title="Fit board to screen (Shift+1)">Fit</button>
+  </div>
+
+  <!-- Selected node inspector -->
+  <aside id="inspector" class="inspector" hidden>
+    <div class="insp-row">
+      <label>Type</label>
+      <div id="insp-types" class="chips"></div>
+    </div>
+    <div class="insp-row">
+      <label>Connections</label>
+      <span id="insp-conn" class="muted">0 in · 0 out</span>
+    </div>
+    <div class="insp-row">
+      <label id="insp-detail-label">Full text</label>
+      <div id="insp-detail" class="insp-detail"></div>
+    </div>
+    <button id="insp-delete" class="ghost danger block">Delete node</button>
+    <p class="insp-tip">Double-click a node to edit · Drag the dot below a node to connect</p>
+  </aside>
+
+  <!-- Inline node editor (positioned over a node) -->
+  <div id="editor" class="editor" hidden>
+    <input id="editor-title" class="editor-title" placeholder="Title" />
+    <textarea id="editor-body" class="editor-body" placeholder="Description…"></textarea>
+  </div>
+
+  <!-- World Bible panel -->
+  <div id="bible" class="bible-modal" hidden>
+    <div class="bible-card">
+      <header class="bible-head">
+        <div>
+          <strong>World Bible</strong>
+          <span class="bible-sub">AI drafts it · you review &amp; edit (your changes are saved as canon)</span>
+        </div>
+        <button id="bible-close" class="ghost" title="Close">&times;</button>
+      </header>
+
+      <div class="bible-conn">
+        <label>Backend<input id="bible-base" type="text" placeholder="http://127.0.0.1:8000" /></label>
+        <label>World id<input id="bible-world" type="text" placeholder="world id…" /></label>
+        <button id="bible-fetch" class="ghost" title="Load the saved bible for this world">Fetch</button>
+        <button id="bible-generate" class="ghost" title="Have the AI draft a bible from the world">✦ AI Generate</button>
+      </div>
+
+      <div class="bible-fields">
+        <label>Premise<textarea data-f="premise" rows="3"></textarea></label>
+        <label>Aether system<textarea data-f="aether_system" rows="3"></textarea></label>
+        <label>The Fall<textarea data-f="the_fall" rows="2"></textarea></label>
+        <label>History<textarea data-f="history" rows="2"></textarea></label>
+        <fieldset class="bible-layers">
+          <legend>Layers</legend>
+          <label>Sky<textarea data-l="sky" rows="2"></textarea></label>
+          <label>Surface<textarea data-l="surface" rows="2"></textarea></label>
+          <label>Underground<textarea data-l="underground" rows="2"></textarea></label>
+          <label>Deep<textarea data-l="deep" rows="2"></textarea></label>
+          <label>Ocean<textarea data-l="ocean" rows="2"></textarea></label>
+        </fieldset>
+        <label>Peoples<textarea data-f="peoples" rows="2"></textarea></label>
+        <label>Factions<textarea data-f="factions_overview" rows="2"></textarea></label>
+        <label>Themes <span class="hintlabel">(comma-separated)</span><input data-f="themes" type="text" /></label>
+        <label>Tone<textarea data-f="tone" rows="2"></textarea></label>
+      </div>
+
+      <footer class="bible-foot">
+        <span id="bible-status" class="muted"></span>
+        <button id="bible-save" class="solid">Save my edits</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Empty state -->
+  <div id="empty" class="empty" hidden>
+    <p>Your board is empty.</p>
+    <button id="empty-demo" class="solid">Load sample storyboard</button>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

@@ -2,6 +2,7 @@ from __future__ import annotations
 import json
 import sqlite3
 import uuid
+from app.ai.json_utils import extract_json_object
 from app.ai.model_router import ModelRouter
 from app.ai.rag.retriever import Retriever
 from app.ai.rag.story_bible import StoryBible
@@ -28,8 +29,8 @@ def generate_outline(world_id, conn: sqlite3.Connection, router: ModelRouter,
     ]
     raw = router.complete("director", messages, json_mode=True).content
     try:
-        data = json.loads(raw)
-    except json.JSONDecodeError as exc:
+        data = extract_json_object(raw)
+    except ValueError as exc:
         raise ValueError("director returned non-JSON story outline") from exc
     if not isinstance(data, dict):
         raise ValueError("director returned a non-object story outline")

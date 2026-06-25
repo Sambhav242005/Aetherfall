@@ -1,5 +1,5 @@
 from __future__ import annotations
-import json
+from app.ai.json_utils import extract_json_object
 from app.ai.model_router import ModelRouter
 from app.models.schemas import VerifierVerdict
 
@@ -21,7 +21,9 @@ def verify_scene(scene_text: str, packed_context: str, router: ModelRouter, *,
     ]
     result = router.complete("verifier", messages, json_mode=True, exclude_model=generator_model)
     try:
-        data = json.loads(result.content)
+        data = extract_json_object(result.content)
+        if not isinstance(data, dict):
+            raise ValueError("non-object verdict")
         return VerifierVerdict(**data)
-    except (json.JSONDecodeError, TypeError, ValueError):
+    except (ValueError, TypeError):
         return VerifierVerdict(verdict="reject", issues=["unparseable verifier output"])

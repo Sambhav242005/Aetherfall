@@ -2,6 +2,7 @@ from __future__ import annotations
 import sqlite3
 from dataclasses import dataclass
 from app.ai.rag.story_bible import StoryBible
+from app.ai.worldbuilder import load_world_bible, render_world_bible
 
 
 @dataclass
@@ -18,9 +19,10 @@ class RetrievedContext:
 
 
 class Retriever:
-    def __init__(self, conn: sqlite3.Connection, bible: StoryBible) -> None:
+    def __init__(self, conn: sqlite3.Connection, bible: StoryBible, world_id=None) -> None:
         self._conn = conn
         self._bible = bible
+        self._world_id = world_id
 
     def _rows(self, table: str, ids: list[str] | None) -> list:
         if ids is None:
@@ -32,6 +34,12 @@ class Retriever:
 
     def world_facts(self, location_ids=None, character_ids=None, faction_ids=None) -> str:
         lines: list[str] = []
+        if self._world_id is not None:
+            wb = load_world_bible(self._conn, self._world_id)
+            if wb is not None:
+                canon = render_world_bible(wb)
+                if canon:
+                    lines.append(canon)
         for s in self._rows("structures", location_ids):
             lines.append(f"LOCATION {s['id']}: {s['type']} (layer {s['layer']})")
         for n in self._rows("npcs", character_ids):

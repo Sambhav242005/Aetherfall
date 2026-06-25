@@ -35,6 +35,28 @@ class World(BaseModel):
     regions: list[str] = ["Riverfall Valley"]
 
 
+class WorldBible(BaseModel):
+    """Foundational, canonical setting for a world ("world basics").
+
+    AI drafts it (source='ai', status='draft'); a human may edit/approve it
+    (source='human'). Injected ahead of procedural facts so generation stays
+    consistent instead of improvising the setting.
+    """
+    model_config = ConfigDict(from_attributes=True)
+    world_id: str
+    premise: str = ""             # high concept — what this world is
+    aether_system: str = ""       # the magic/energy system (the differentiator)
+    the_fall: str = ""            # the defining historical catastrophe
+    history: str = ""             # eras / timeline
+    layers: dict[str, str] = Field(default_factory=dict)  # per Layer description
+    peoples: str = ""             # cultures / species
+    factions_overview: str = ""   # ideological overview of powers
+    themes: list[str] = Field(default_factory=list)       # central conflict & themes
+    tone: str = ""                # tone & consistency rules
+    status: str = "draft"         # draft | approved
+    source: str = "ai"            # ai | human (who last authored it)
+
+
 class Chunk(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: str

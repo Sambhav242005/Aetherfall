@@ -39,3 +39,46 @@ def test_validate_endpoint_rejects_bad_location():
     body = {"id": "p1", "proposal_type": "scene", "payload": {"location_id": "struct_nowhere"}}
     resp = client.post("/api/ai/proposal/validate", json=body).json()
     assert resp["valid"] is False and resp["reasons"]
+
+
+_BIBLE = json.dumps({
+    "premise": "Aether rains from the sky onto a layered world.",
+    "aether_system": "Aether settles downward and corrupts the deep.",
+    "the_fall": "The Skyveil cracked.", "history": "Three ages have passed.",
+    "layers": {"surface": "habitable belt"}, "peoples": "Valefolk farmers.",
+    "factions_overview": "Wardens seal the deep; Gleaners harvest aether.",
+    "themes": ["decay"], "tone": "Melancholy, grounded.",
+})
+
+
+def test_world_bible_generate_fetch_and_user_edit():
+    client = TestClient(app)
+    wid = client.post("/api/world/new", params={"seed": 7}).json()["world"]["id"]
+
+    def fake_router():
+        return ModelRouter(FakeAIClient([_BIBLE, _VERDICT]),
+                           Settings(openrouter_api_key="k", director_models=["d1"],
+                                    verifier_models=["v1"], rpm_limit=1000))
+
+    app.dependency_overrides[get_router] = fake_router
+    try:
+        gen = client.post(f"/api/ai/world/{wid}/bible/generate").json()
+        assert gen["source"] == "ai" and gen["status"] == "draft"
+        assert "aether" in gen["premise"].lower()
+    finally:
+        app.dependency_overrides.clear()
+
+    fetched = client.get(f"/api/ai/world/{wid}/bible").json()
+    assert fetched["themes"] == ["decay"]
+
+    # The user reviews and changes it; the edit is recorded as human-authored.
+    edit = dict(fetched, premise="Player-revised premise.", status="approved")
+    saved = client.put(f"/api/ai/world/{wid}/bible", json=edit).json()
+    assert saved["source"] == "human" and saved["premise"] == "Player-revised premise."
+    assert client.get(f"/api/ai/world/{wid}/bible").json()["status"] == "approved"
+
+
+def test_world_bible_404_when_absent():
+    client = TestClient(app)
+    wid = client.post("/api/world/new", params={"seed": 8}).json()["world"]["id"]
+    assert client.get(f"/api/ai/world/{wid}/bible").status_code == 404

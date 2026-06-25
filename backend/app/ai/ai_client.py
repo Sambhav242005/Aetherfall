@@ -1,4 +1,5 @@
 from __future__ import annotations
+import json
 from typing import Protocol
 import httpx
 
@@ -32,5 +33,8 @@ class OpenRouterClient:
             resp = client.post(f"{self._base_url}/chat/completions",
                                headers=headers, json=payload)
         resp.raise_for_status()
-        data = resp.json()
+        # Decode bytes as UTF-8 (json.loads auto-detects per RFC) instead of letting
+        # httpx guess the charset — OpenRouter omits it, and the guess mangles non-ASCII
+        # punctuation (em dashes, smart quotes) into mojibake.
+        data = json.loads(resp.content)
         return data["choices"][0]["message"]["content"]
